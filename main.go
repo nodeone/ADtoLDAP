@@ -6,7 +6,7 @@ import (
 //	"fmt"
 	"os"
 //	"ADtoLDAP/gosyncmodules"
-	"github.com/nohupped/ADtoLDAP/gosyncmodules"
+	"github.com/nodeone/ADtoLDAP/gosyncmodules"
 	"reflect"
 //	"os/signal"
 	"gopkg.in/ldap.v2"
