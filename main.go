@@ -1,20 +1,21 @@
 package main
 
-
 import (
 	"os/user"
-//	"fmt"
+	//	"fmt"
 	"os"
-//	"ADtoLDAP/gosyncmodules"
-	"github.com/nodeone/ADtoLDAP/gosyncmodules"
+	//	"ADtoLDAP/gosyncmodules"
 	"reflect"
-//	"os/signal"
-	"gopkg.in/ldap.v2"
-	"time"
-	"runtime"
+
+	"github.com/nodeone/ADtoLDAP/gosyncmodules"
+	//	"os/signal"
 	"flag"
-//	"bytes"
-//	"runtime/pprof"
+	"runtime"
+	"time"
+
+	"gopkg.in/ldap.v2"
+	//	"bytes"
+	//	"runtime/pprof"
 )
 
 /*func init()  {
@@ -32,13 +33,19 @@ import (
 func main() {
 
 	// Initialize logger
+	defaultLogFile := "/var/log/ldapsync.log"
+	defaultConfigFile := "/etc/ldapsync.ini"
 
+	if runtime.GOOS == "windows" {
+		defaultLogFile = "./ldapsync.log"
+		defaultConfigFile = "./ldapsync.ini"
+	}
 
 	// Flags
-	checkSafety := flag.Bool("safe", true, "Set it to false to skip config file securitycheck")
+	checkSafety := flag.Bool("safe", true, "Set it to false to skip config file securitycheck.")
 	syncrun := flag.String("sync", "daemon", "Set it to \"once\" for a single run, and \"daemon\" to run it continuously")
-	configFile := flag.String("configfile", "/etc/ldapsync.ini", "Path to the config file")
-	logfile := flag.String("logfile", "/var/log/ldapsync.log", "Path to log file. Defaults to /var/log/ldapsync.log")
+	configFile := flag.String("configfile", defaultConfigFile, "Path to the config file.")
+	logfile := flag.String("logfile", defaultLogFile, "Path to log file.")
 	flag.Parse()
 
 	username, err := user.Current()
@@ -46,10 +53,8 @@ func main() {
 	loggerMain := gosyncmodules.StartLog(*logfile, username)
 	defer loggerMain.Close()
 
-
 	gosyncmodules.Info.Println("safe option set to", *checkSafety)
 	gosyncmodules.Info.Println("Config file is, ", *configFile)
-
 
 	if *checkSafety == true {
 		gosyncmodules.CheckPerm(*configFile)
@@ -182,8 +187,8 @@ func main() {
 			ADBaseDN.String(), ADFilter.String(), ADAttribute, ADPage.MustInt(500), ADConnTimeOut.MustInt(10),
 			ADUseTLS.MustBool(true), ADCRTInsecureSkipVerify.MustBool(false),
 			ADCrtValidFor.String(), ADCrtPath.String(), shutdownChannel, ADElementsChan)
-		ADElements := <- ADElementsChan		//Finished retriving AD results
-		gosyncmodules.Info.Println(<-shutdownChannel)	//Finished reading from Blocking channel
+		ADElements := <-ADElementsChan                //Finished retriving AD results
+		gosyncmodules.Info.Println(<-shutdownChannel) //Finished reading from Blocking channel
 
 		gosyncmodules.InitialrunLDAP(LDAPHost.String(), LDAP_Port, LDAPUsername.String(), LDAPPassword.String(),
 			LDAPBaseDN.String(), LDAPFilter.String(), LDAPAttribute, LDAPPage.MustInt(500), LDAPConnTimeOut.MustInt(10),
@@ -192,10 +197,10 @@ func main() {
 
 		gosyncmodules.Info.Println("Received", reflect.TypeOf(ADElementsChan), "from child thread, and has ", len(*ADElements), "elements")
 
-	}else {
+	} else {
 		gosyncmodules.Info.Println("Initiating sync")
 
-		for ; ;  {
+		for {
 			AddChan := make(chan gosyncmodules.Action)
 			gosyncmodules.Info.Println("Created", reflect.TypeOf(AddChan))
 			DelChan := make(chan gosyncmodules.Action)
@@ -210,38 +215,33 @@ func main() {
 			LDAPElementsChan := make(chan *[]gosyncmodules.LDAPElement)
 			gosyncmodules.Info.Println("Created channel of type", reflect.TypeOf(LDAPElementsChan))
 
-
 			go gosyncmodules.SyncrunLDAP(LDAPHost.String(), LDAP_Port, LDAPUsername.String(), LDAPPassword.String(),
-					LDAPBaseDN.String(), LDAPFilter.String(), LDAPAttribute, LDAPPage.MustInt(500),
-					LDAPConnTimeOut.MustInt(10), LDAPUseTLS.MustBool(true), LDAPCRTInsecureSkipVerify.MustBool(false),
-					LDAPCrtValidFor.String(), LDAPCrtPath.String(), shutdownChannel, LDAPElementsChan, LdapConnectionChan,
-					ReplaceAttributes, MapAttributes)
+				LDAPBaseDN.String(), LDAPFilter.String(), LDAPAttribute, LDAPPage.MustInt(500),
+				LDAPConnTimeOut.MustInt(10), LDAPUseTLS.MustBool(true), LDAPCRTInsecureSkipVerify.MustBool(false),
+				LDAPCrtValidFor.String(), LDAPCrtPath.String(), shutdownChannel, LDAPElementsChan, LdapConnectionChan,
+				ReplaceAttributes, MapAttributes)
 			go gosyncmodules.InitialrunAD(ADHost.String(), AD_Port, ADUsername.String(), ADPassword.String(),
 				ADBaseDN.String(), ADFilter.String(), ADAttribute, ADPage.MustInt(500),
 				ADConnTimeOut.MustInt(10), ADUseTLS.MustBool(true), ADCRTInsecureSkipVerify.MustBool(false),
 				ADCrtValidFor.String(), ADCrtPath.String(), shutdownChannel, ADElementsChan)
-			ADElements := <- ADElementsChan
-			LDAPElements := <- LDAPElementsChan
-			LDAPConnection := <- LdapConnectionChan
+			ADElements := <-ADElementsChan
+			LDAPElements := <-LDAPElementsChan
+			LDAPConnection := <-LdapConnectionChan
 			gosyncmodules.Info.Println(<-shutdownChannel)
 			gosyncmodules.Info.Println(<-shutdownChannel)
 
 			ADElementsConverted := gosyncmodules.InitialPopulateToLdap(ADElements, LDAPConnection, ReplaceAttributes, MapAttributes, true)
 			LDAPElementsConverted := gosyncmodules.InitialPopulateToLdap(LDAPElements, LDAPConnection, ReplaceAttributes, MapAttributes, true)
 
-
-
 			gosyncmodules.ConvertRealmToLower(ADElementsConverted)
 			gosyncmodules.Info.Println("Converted AD Realms to lowercase")
-
-
 
 			go gosyncmodules.FindAdds(&ADElementsConverted, &LDAPElementsConverted, LDAPConnection, AddChan, shutdownAddChan)
 			go gosyncmodules.FindDels(&LDAPElementsConverted, &ADElementsConverted, DelChan, shutdownDelChan)
 			counter := 0
-			for ; ; {
+			for {
 				select {
-				case Add := <- AddChan:
+				case Add := <-AddChan:
 					for _, v := range Add {
 						//gosyncmodules.Info.Println(k, ":", v)
 						err := LDAPConnection.Add(v)
@@ -249,8 +249,8 @@ func main() {
 							gosyncmodules.Error.Println(err)
 						}
 					}
-				case Del := <- DelChan:
-					for _, v := range Del  {
+				case Del := <-DelChan:
+					for _, v := range Del {
 						//gosyncmodules.Info.Println(k, ":", v)
 						delete := ldap.NewDelRequest(v.DN, []ldap.Control{})
 						err := LDAPConnection.Del(delete)
@@ -258,15 +258,15 @@ func main() {
 							gosyncmodules.Error.Println(err)
 						}
 					}
-				case shutdownAdd := <- shutdownAddChan:
+				case shutdownAdd := <-shutdownAddChan:
 					gosyncmodules.Info.Println(shutdownAdd)
 					counter += 1
-				case shutdownDel := <- shutdownDelChan:
+				case shutdownDel := <-shutdownDelChan:
 					gosyncmodules.Info.Println(shutdownDel)
 					counter += 1
 
 				}
-				if counter == 2{
+				if counter == 2 {
 					gosyncmodules.Info.Println("Counter reached")
 					break
 				}
@@ -290,8 +290,6 @@ func main() {
 			out := buf[:runtime.Stack(buf[:], true)]
 			fmt.Println("runtime.Stack report:\n", string(out))*/
 			time.Sleep(time.Second * time.Duration(Delay.MustInt(5)))
-
-
 
 		}
 	}
